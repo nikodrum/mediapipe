@@ -37,7 +37,7 @@ from mediapipe.calculators.util import thresholding_calculator_pb2
 # pylint: enable=unused-import
 from mediapipe.python.solution_base import SolutionBase
 
-BINARYPB_FILE_PATH = 'mediapipe/modules/face_landmark/face_landmark_front_cpu.binarypb'
+BINARYPB_FILE_PATH = 'mediapipe/modules/face_landmark/face_landmark_front_gpu.binarypb'
 FACE_CONNECTIONS = frozenset([
     # Lips.
     (61, 146),
@@ -213,9 +213,9 @@ class FaceMesh(SolutionBase):
                 .ConstantSidePacketCalculatorOptions.ConstantSidePacket(
                     bool_value=not static_image_mode)
             ],
-            'facedetectionfrontcpu__TensorsToDetectionsCalculator.min_score_thresh':
+            'facedetectionfrontgpu__TensorsToDetectionsCalculator.min_score_thresh':
                 min_detection_confidence,
-            'facelandmarkcpu__ThresholdingCalculator.threshold':
+            'facelandmarkgpu__ThresholdingCalculator.threshold':
                 min_tracking_confidence,
         },
         outputs=['multi_face_landmarks'])

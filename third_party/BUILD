@@ -139,6 +139,8 @@ cmake_external(
         # ccache would be able to work across sandboxed Bazel builds, either.
         # In any case, Bazel does its own caching of the rule's outputs.
         "ENABLE_CCACHE": "OFF",
+        "ENABLE_NEON": "OFF",
+        "WITH_TENGINE": "OFF",
     },
     lib_source = "@opencv//:all",
     linkopts = [] if OPENCV_SHARED_LIBS else [

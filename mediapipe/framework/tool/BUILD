@@ -97,6 +97,7 @@ cc_binary(
     deps = [
         "@com_google_absl//absl/strings",
     ],
+    linkopts = ["-lm"],
 )
 
 cc_library(

@@ -28,7 +28,7 @@ from mediapipe.calculators.util import non_max_suppression_calculator_pb2
 # pylint: enable=unused-import
 from mediapipe.python.solution_base import SolutionBase
 
-BINARYPB_FILE_PATH = 'mediapipe/modules/face_detection/face_detection_front_cpu.binarypb'
+BINARYPB_FILE_PATH = 'mediapipe/modules/face_detection/face_detection_front_gpu.binarypb'
 
 
 def get_key_point(
