@@ -38,8 +38,8 @@ workspace_file="$( cd "$(dirname "$0")" ; pwd -P )"/WORKSPACE
 if [ -z "$1" ]
   then
     echo "Installing OpenCV from source"
-    sudo apt update && sudo apt install build-essential git
-    sudo apt install cmake ffmpeg libavformat-dev libdc1394-22-dev libgtk2.0-dev \
+    sudo apt update && sudo apt -y install build-essential git
+    sudo apt install -y cmake ffmpeg libavformat-dev libdc1394-22-dev libgtk2.0-dev \
                      libjpeg-dev libpng-dev libswscale-dev libtbb2 libtbb-dev \
                      libtiff-dev
     rm -rf /tmp/build_opencv
