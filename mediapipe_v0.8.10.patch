@@ -1,0 +1,525 @@
+diff --git a/.bazelversion b/.bazelversion
+index 0062ac9..91ff572 100644
+--- a/.bazelversion
++++ b/.bazelversion
+@@ -1 +1 @@
+-5.0.0
++5.2.0
+diff --git a/mediapipe/__init__.py b/mediapipe/__init__.py
+index 69d7dfc..5d44b38 100644
+--- a/mediapipe/__init__.py
++++ b/mediapipe/__init__.py
+@@ -12,3 +12,5 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ See the License for the specific language governing permissions and
+ limitations under the License.
+ """
++from mediapipe.python import *
++import mediapipe.python.solutions as solutions
+diff --git a/mediapipe/gpu/gl_context_egl.cc b/mediapipe/gpu/gl_context_egl.cc
+index 75eeeb9..e5d28c1 100644
+--- a/mediapipe/gpu/gl_context_egl.cc
++++ b/mediapipe/gpu/gl_context_egl.cc
+@@ -125,7 +125,7 @@ absl::Status GlContext::CreateContextInternal(EGLContext share_context,
+ #ifdef MEDIAPIPE_OMIT_EGL_WINDOW_BIT
+       EGL_PBUFFER_BIT,
+ #else
+-      EGL_PBUFFER_BIT | EGL_WINDOW_BIT,
++      EGL_PBUFFER_BIT,
+ #endif
+       EGL_RED_SIZE, 8,
+       EGL_GREEN_SIZE, 8,
+diff --git a/mediapipe/gpu/gpu_buffer.cc b/mediapipe/gpu/gpu_buffer.cc
+index bb215db..6d49c05 100644
+--- a/mediapipe/gpu/gpu_buffer.cc
++++ b/mediapipe/gpu/gpu_buffer.cc
+@@ -68,3 +68,7 @@ CVPixelBufferRef GetCVPixelBufferRef(const GpuBuffer& buffer) {
+ #endif  // !MEDIAPIPE_DISABLE_GPU
+ 
+ }  // namespace mediapipe
++
++#include "mediapipe/framework/type_map.h"
++MEDIAPIPE_REGISTER_TYPE(mediapipe::GpuBuffer, "::mediapipe::GpuBuffer", nullptr,
++                        nullptr);
+diff --git a/mediapipe/modules/holistic_landmark/holistic_landmark_gpu.pbtxt b/mediapipe/modules/holistic_landmark/holistic_landmark_gpu.pbtxt
+index 33ed880..34bfcf4 100644
+--- a/mediapipe/modules/holistic_landmark/holistic_landmark_gpu.pbtxt
++++ b/mediapipe/modules/holistic_landmark/holistic_landmark_gpu.pbtxt
+@@ -52,6 +52,7 @@
+ type: "HolisticLandmarkGpu"
+ 
+ # GPU image. (GpuBuffer)
++# CPU image.
+ input_stream: "IMAGE:image"
+ 
+ # Complexity of the pose landmark model: 0, 1 or 2. Landmark accuracy as well as
+@@ -99,10 +100,22 @@ output_stream: "SEGMENTATION_MASK:segmentation_mask"
+ output_stream: "POSE_ROI:pose_landmarks_roi"
+ output_stream: "POSE_DETECTION:pose_detection"
+ 
++node: {
++  calculator: "ColorConvertCalculator"
++  input_stream: "RGB_IN:image"
++  output_stream: "RGBA_OUT:image_rgba"
++}
++
++node: {
++  calculator: "ImageFrameToGpuBufferCalculator"
++  input_stream: "image_rgba"
++  output_stream: "image_gpu"
++}
++
+ # Predicts pose landmarks.
+ node {
+   calculator: "PoseLandmarkGpu"
+-  input_stream: "IMAGE:image"
++  input_stream: "IMAGE:image_gpu"
+   input_side_packet: "MODEL_COMPLEXITY:model_complexity"
+   input_side_packet: "SMOOTH_LANDMARKS:smooth_landmarks"
+   input_side_packet: "ENABLE_SEGMENTATION:enable_segmentation"
+@@ -118,7 +131,7 @@ node {
+ # Predicts left and right hand landmarks based on the initial pose landmarks.
+ node {
+   calculator: "HandLandmarksLeftAndRightGpu"
+-  input_stream: "IMAGE:image"
++  input_stream: "IMAGE:image_gpu"
+   input_stream: "POSE_LANDMARKS:pose_landmarks"
+   output_stream: "LEFT_HAND_LANDMARKS:left_hand_landmarks"
+   output_stream: "RIGHT_HAND_LANDMARKS:right_hand_landmarks"
+@@ -139,7 +152,7 @@ node {
+ # Predicts face landmarks based on the initial pose landmarks.
+ node {
+   calculator: "FaceLandmarksFromPoseGpu"
+-  input_stream: "IMAGE:image"
++  input_stream: "IMAGE:image_gpu"
+   input_stream: "FACE_LANDMARKS_FROM_POSE:face_landmarks_from_pose"
+   input_side_packet: "REFINE_LANDMARKS:refine_face_landmarks"
+   output_stream: "FACE_LANDMARKS:face_landmarks"
+diff --git a/mediapipe/python/BUILD b/mediapipe/python/BUILD
+index b1b96c3..08fc15f 100644
+--- a/mediapipe/python/BUILD
++++ b/mediapipe/python/BUILD
+@@ -63,16 +63,20 @@ cc_library(
+         "//mediapipe/calculators/core:string_to_int_calculator",
+         "//mediapipe/calculators/image:image_transformation_calculator",
+         "//mediapipe/calculators/util:detection_unique_id_calculator",
+-        "//mediapipe/modules/face_detection:face_detection_full_range_cpu",
+-        "//mediapipe/modules/face_detection:face_detection_short_range_cpu",
+-        "//mediapipe/modules/face_landmark:face_landmark_front_cpu",
+-        "//mediapipe/modules/hand_landmark:hand_landmark_tracking_cpu",
+-        "//mediapipe/modules/holistic_landmark:holistic_landmark_cpu",
+-        "//mediapipe/modules/objectron:objectron_cpu",
+-        "//mediapipe/modules/palm_detection:palm_detection_cpu",
+-        "//mediapipe/modules/pose_detection:pose_detection_cpu",
+-        "//mediapipe/modules/pose_landmark:pose_landmark_by_roi_cpu",
+-        "//mediapipe/modules/pose_landmark:pose_landmark_cpu",
+-        "//mediapipe/modules/selfie_segmentation:selfie_segmentation_cpu",
++        "//mediapipe/modules/face_detection:face_detection_full_range_gpu",
++        "//mediapipe/modules/face_detection:face_detection_short_range_gpu",
++        "//mediapipe/modules/face_landmark:face_landmark_front_gpu",
++        "//mediapipe/modules/hand_landmark:hand_landmark_tracking_gpu",
++	"//mediapipe/gpu:image_frame_to_gpu_buffer_calculator",
++        "//mediapipe/gpu:gpu_buffer_to_image_frame_calculator",
++        "//mediapipe/calculators/image:color_convert_calculator",
++        "//mediapipe/modules/holistic_landmark:holistic_landmark_gpu",
++        "//mediapipe/modules/objectron:objectron_gpu",
++        "//mediapipe/modules/palm_detection:palm_detection_gpu",
++        "//mediapipe/modules/pose_detection:pose_detection_gpu",
++        "//mediapipe/modules/pose_landmark:pose_landmark_by_roi_gpu",
++        "//mediapipe/modules/pose_landmark:pose_landmark_gpu",
++        "//mediapipe/modules/selfie_segmentation:selfie_segmentation_gpu",
+     ],
+ )
++
+diff --git a/mediapipe/python/pybind/BUILD b/mediapipe/python/pybind/BUILD
+index be79e35..42e43c1 100644
+--- a/mediapipe/python/pybind/BUILD
++++ b/mediapipe/python/pybind/BUILD
+@@ -24,6 +24,7 @@ pybind_library(
+     hdrs = ["calculator_graph.h"],
+     deps = [
+         ":util",
++        "//mediapipe/gpu:gl_calculator_helper",
+         "//mediapipe/framework:calculator_cc_proto",
+         "//mediapipe/framework:calculator_graph",
+         "//mediapipe/framework:packet",
+diff --git a/mediapipe/python/pybind/calculator_graph.cc b/mediapipe/python/pybind/calculator_graph.cc
+index b017ca3..bee2323 100644
+--- a/mediapipe/python/pybind/calculator_graph.cc
++++ b/mediapipe/python/pybind/calculator_graph.cc
+@@ -28,6 +28,13 @@
+ #include "pybind11/pybind11.h"
+ #include "pybind11/stl.h"
+ 
++#if !MEDIAPIPE_DISABLE_GPU
++#include "mediapipe/gpu/gpu_shared_data_internal.h"
++#include "mediapipe/gpu/gl_calculator_helper.h"
++#include "mediapipe/gpu/gpu_buffer.h"
++#include "mediapipe/gpu/gpu_shared_data_internal.h"
++#endif  // !MEDIAPIPE_DISABLE_GPU
++
+ namespace mediapipe {
+ namespace python {
+ 
+@@ -113,6 +120,17 @@ void CalculatorGraphSubmodule(pybind11::module* module) {
+         }
+         auto calculator_graph = absl::make_unique<CalculatorGraph>();
+         RaisePyErrorIfNotOk(calculator_graph->Initialize(graph_config_proto));
++        LOG(INFO) << "Initialize the GPU.";
++        auto maybe_gpu_res = std::move(mediapipe::GpuResources::Create());
++        if (maybe_gpu_res.ok())
++        {
++            LOG(INFO) << "Succeeded get GPU";
++            calculator_graph->SetGpuResources(std::move(*maybe_gpu_res));
++        }
++        else
++        {
++            LOG(ERROR) << maybe_gpu_res.status();
++        }
+         return calculator_graph.release();
+       }),
+       R"doc(Initialize CalculatorGraph object.
+@@ -207,6 +225,44 @@ void CalculatorGraphSubmodule(pybind11::module* module) {
+       py::arg("stream"), py::arg("packet"),
+       py::arg("timestamp") = Timestamp::Unset());
+ 
++  calculator_graph.def(
++        "add_input_frame_as_a_gpu_buffer_to_input_stream",
++        [](CalculatorGraph* self, const std::string& stream, const ImageFrame& input_frame,
++          const Timestamp& timestamp) {
++          if (!timestamp.IsAllowedInStream()) {
++            throw RaisePyError(
++                PyExc_ValueError,
++                absl::StrCat(timestamp.DebugString(),
++                            " can't be the timestamp of a Packet in a stream.")
++                    .c_str());
++          }
++          mediapipe::GlCalculatorHelper gpu_helper;
++          gpu_helper.InitializeForTest(self->GetGpuResources().get());
++
++          gpu_helper.RunInGlContext([&input_frame, &stream, &timestamp, &self,
++                                            &gpu_helper]() -> absl::Status {
++                    // Convert ImageFrame to GpuBuffer.
++                    auto texture = gpu_helper.CreateSourceTexture(input_frame);
++                    auto gpu_frame = texture.GetFrame<mediapipe::GpuBuffer>();
++                    glFlush();
++                    texture.Release();
++                    // Send GPU image packet into the graph.
++                    py::gil_scoped_release gil_release;
++                    self->AddPacketToInputStream(
++                        stream, mediapipe::Adopt(gpu_frame.release())
++                                          .At(timestamp));
++                    return absl::OkStatus();
++                  });
++
++          // RaisePyErrorIfNotOk(
++          //     self->AddPacketToInputStream(stream, packet.At(packet_timestamp)),
++          //     /**acquire_gil=*/true);
++        },
++        "",
++        py::arg("stream"), py::arg("input_frame"),
++        py::arg("timestamp") = Timestamp::Unset());
++
++
+   calculator_graph.def(
+       "close_input_stream",
+       [](CalculatorGraph* self, const std::string& stream) {
+diff --git a/mediapipe/python/solution_base.py b/mediapipe/python/solution_base.py
+index b33d116..a78e5a7 100644
+--- a/mediapipe/python/solution_base.py
++++ b/mediapipe/python/solution_base.py
+@@ -27,6 +27,7 @@ import os
+ from typing import Any, Iterable, List, Mapping, NamedTuple, Optional, Union
+ 
+ import numpy as np
++import cv2
+ 
+ from google.protobuf import descriptor
+ from google.protobuf import message
+@@ -100,6 +101,7 @@ class PacketDataType(enum.Enum):
+   AUDIO = 'matrix'
+   IMAGE = 'image'
+   IMAGE_FRAME = 'image_frame'
++  GPU_BUFFER = 'gpu_buffer'
+   PROTO = 'proto'
+   PROTO_LIST = 'proto_list'
+ 
+@@ -138,6 +140,8 @@ NAME_TO_TYPE: Mapping[str, 'PacketDataType'] = {
+         PacketDataType.AUDIO,
+     '::mediapipe::ImageFrame':
+         PacketDataType.IMAGE_FRAME,
++    '::mediapipe::GpuBuffer':
++        PacketDataType.GPU_BUFFER,
+     '::mediapipe::Classification':
+         PacketDataType.PROTO,
+     '::mediapipe::ClassificationList':
+@@ -283,6 +287,7 @@ class SolutionBase:
+         for name, data in (side_inputs or {}).items()
+     }
+     self._graph.start_run(self._input_side_packets)
++    self.use_gpu = True
+ 
+   # TODO: Use "inspect.Parameter" to fetch the input argument names and
+   # types from "_input_stream_type_info" and then auto generate the process
+@@ -345,9 +350,17 @@ class SolutionBase:
+         if data.shape[2] != RGB_CHANNELS:
+           raise ValueError('Input image must contain three channel rgb data.')
+         self._graph.add_packet_to_input_stream(
+-            stream=stream_name,
+-            packet=self._make_packet(input_stream_type,
+-                                     data).at(self._simulated_timestamp))
++          stream=stream_name,
++          packet=self._make_packet(input_stream_type,
++                                    data).at(self._simulated_timestamp))
++      elif (input_stream_type == PacketDataType.GPU_BUFFER):
++          data = cv2.cvtColor(data, cv2.COLOR_RGB2RGBA)
++          # if data.shape[2] != RGB_CHANNELS:
++          #   raise ValueError('Input image must contain three channel rgb data.')
++          self._graph.add_input_frame_as_a_gpu_buffer_to_input_stream(
++              stream=stream_name,
++              input_frame=image_frame.ImageFrame(image_frame.ImageFormat.SRGBA, data),
++              timestamp=self._simulated_timestamp)    
+       else:
+         self._graph.add_packet_to_input_stream(
+             stream=stream_name,
+diff --git a/mediapipe/python/solutions/face_detection.py b/mediapipe/python/solutions/face_detection.py
+index 7d4da8f..4d9b3ed 100644
+--- a/mediapipe/python/solutions/face_detection.py
++++ b/mediapipe/python/solutions/face_detection.py
+@@ -28,8 +28,8 @@ from mediapipe.calculators.util import non_max_suppression_calculator_pb2
+ # pylint: enable=unused-import
+ from mediapipe.python.solution_base import SolutionBase
+ 
+-_SHORT_RANGE_GRAPH_FILE_PATH = 'mediapipe/modules/face_detection/face_detection_short_range_cpu.binarypb'
+-_FULL_RANGE_GRAPH_FILE_PATH = 'mediapipe/modules/face_detection/face_detection_full_range_cpu.binarypb'
++_SHORT_RANGE_GRAPH_FILE_PATH = 'mediapipe/modules/face_detection/face_detection_short_range_gpu.binarypb'
++_FULL_RANGE_GRAPH_FILE_PATH = 'mediapipe/modules/face_detection/face_detection_full_range_gpu.binarypb'
+ 
+ 
+ def get_key_point(
+diff --git a/mediapipe/python/solutions/face_mesh.py b/mediapipe/python/solutions/face_mesh.py
+index 1fe9d91..88cfb2a 100644
+--- a/mediapipe/python/solutions/face_mesh.py
++++ b/mediapipe/python/solutions/face_mesh.py
+@@ -53,7 +53,7 @@ from mediapipe.python.solutions.face_mesh_connections import FACEMESH_TESSELATIO
+ 
+ FACEMESH_NUM_LANDMARKS = 468
+ FACEMESH_NUM_LANDMARKS_WITH_IRISES = 478
+-_BINARYPB_FILE_PATH = 'mediapipe/modules/face_landmark/face_landmark_front_cpu.binarypb'
++_BINARYPB_FILE_PATH = 'mediapipe/modules/face_landmark/face_landmark_front_gpu.binarypb'
+ 
+ 
+ class FaceMesh(SolutionBase):
+@@ -99,9 +99,9 @@ class FaceMesh(SolutionBase):
+             'use_prev_landmarks': not static_image_mode,
+         },
+         calculator_params={
+-            'facedetectionshortrangecpu__facedetectionshortrangecommon__TensorsToDetectionsCalculator.min_score_thresh':
++            'facedetectionshortrangegpu__facedetectionshortrangecommon__TensorsToDetectionsCalculator.min_score_thresh':
+                 min_detection_confidence,
+-            'facelandmarkcpu__ThresholdingCalculator.threshold':
++            'facelandmarkgpu__ThresholdingCalculator.threshold':
+                 min_tracking_confidence,
+         },
+         outputs=['multi_face_landmarks'])
+diff --git a/mediapipe/python/solutions/hands.py b/mediapipe/python/solutions/hands.py
+index 594f24d..3aa9113 100644
+--- a/mediapipe/python/solutions/hands.py
++++ b/mediapipe/python/solutions/hands.py
+@@ -67,7 +67,7 @@ class HandLandmark(enum.IntEnum):
+   PINKY_TIP = 20
+ 
+ 
+-_BINARYPB_FILE_PATH = 'mediapipe/modules/hand_landmark/hand_landmark_tracking_cpu.binarypb'
++_BINARYPB_FILE_PATH = 'mediapipe/modules/hand_landmark/hand_landmark_tracking_gpu.binarypb'
+ 
+ 
+ class Hands(SolutionBase):
+@@ -119,9 +119,9 @@ class Hands(SolutionBase):
+             'use_prev_landmarks': not static_image_mode,
+         },
+         calculator_params={
+-            'palmdetectioncpu__TensorsToDetectionsCalculator.min_score_thresh':
++            'palmdetectiongpu__TensorsToDetectionsCalculator.min_score_thresh':
+                 min_detection_confidence,
+-            'handlandmarkcpu__ThresholdingCalculator.threshold':
++            'handlandmarkgpu__ThresholdingCalculator.threshold':
+                 min_tracking_confidence,
+         },
+         outputs=[
+diff --git a/mediapipe/python/solutions/holistic.py b/mediapipe/python/solutions/holistic.py
+index c58901f..b9e0b5a 100644
+--- a/mediapipe/python/solutions/holistic.py
++++ b/mediapipe/python/solutions/holistic.py
+@@ -49,7 +49,7 @@ from mediapipe.python.solutions.pose import PoseLandmark
+ from mediapipe.python.solutions.pose_connections import POSE_CONNECTIONS
+ # pylint: enable=unused-import
+ 
+-_BINARYPB_FILE_PATH = 'mediapipe/modules/holistic_landmark/holistic_landmark_cpu.binarypb'
++_BINARYPB_FILE_PATH = 'mediapipe/modules/holistic_landmark/holistic_landmark_gpu.binarypb'
+ 
+ 
+ def _download_oss_pose_landmark_model(model_complexity):
+@@ -123,9 +123,9 @@ class Holistic(SolutionBase):
+             'use_prev_landmarks': not static_image_mode,
+         },
+         calculator_params={
+-            'poselandmarkcpu__posedetectioncpu__TensorsToDetectionsCalculator.min_score_thresh':
++            'poselandmarkgpu__posedetectiongpu__TensorsToDetectionsCalculator.min_score_thresh':
+                 min_detection_confidence,
+-            'poselandmarkcpu__poselandmarkbyroicpu__tensorstoposelandmarksandsegmentation__ThresholdingCalculator.threshold':
++            'poselandmarkgpu__poselandmarkbyroigpu__tensorstoposelandmarksandsegmentation__ThresholdingCalculator.threshold':
+                 min_tracking_confidence,
+         },
+         outputs=[
+diff --git a/mediapipe/python/solutions/objectron.py b/mediapipe/python/solutions/objectron.py
+index ea7981f..0e6c955 100644
+--- a/mediapipe/python/solutions/objectron.py
++++ b/mediapipe/python/solutions/objectron.py
+@@ -75,7 +75,7 @@ class BoxLandmark(enum.IntEnum):
+   BACK_TOP_RIGHT = 7
+   FRONT_TOP_RIGHT = 8
+ 
+-_BINARYPB_FILE_PATH = 'mediapipe/modules/objectron/objectron_cpu.binarypb'
++_BINARYPB_FILE_PATH = 'mediapipe/modules/objectron/objectron_gpu.binarypb'
+ BOX_CONNECTIONS = frozenset([
+     (BoxLandmark.BACK_BOTTOM_LEFT, BoxLandmark.FRONT_BOTTOM_LEFT),
+     (BoxLandmark.BACK_BOTTOM_LEFT, BoxLandmark.BACK_TOP_LEFT),
+diff --git a/mediapipe/python/solutions/pose.py b/mediapipe/python/solutions/pose.py
+index 74a52d6..343ff54 100644
+--- a/mediapipe/python/solutions/pose.py
++++ b/mediapipe/python/solutions/pose.py
+@@ -87,7 +87,7 @@ class PoseLandmark(enum.IntEnum):
+   RIGHT_FOOT_INDEX = 32
+ 
+ 
+-_BINARYPB_FILE_PATH = 'mediapipe/modules/pose_landmark/pose_landmark_cpu.binarypb'
++_BINARYPB_FILE_PATH = 'mediapipe/modules/pose_landmark/pose_landmark_gpu.binarypb'
+ 
+ 
+ def _download_oss_pose_landmark_model(model_complexity):
+@@ -154,9 +154,9 @@ class Pose(SolutionBase):
+             'use_prev_landmarks': not static_image_mode,
+         },
+         calculator_params={
+-            'posedetectioncpu__TensorsToDetectionsCalculator.min_score_thresh':
++            'posedetectiongpu__TensorsToDetectionsCalculator.min_score_thresh':
+                 min_detection_confidence,
+-            'poselandmarkbyroicpu__tensorstoposelandmarksandsegmentation__ThresholdingCalculator.threshold':
++            'poselandmarkbyroigpu__tensorstoposelandmarksandsegmentation__ThresholdingCalculator.threshold':
+                 min_tracking_confidence,
+         },
+         outputs=['pose_landmarks', 'pose_world_landmarks', 'segmentation_mask'])
+diff --git a/mediapipe/python/solutions/selfie_segmentation.py b/mediapipe/python/solutions/selfie_segmentation.py
+index 1334e9f..b795b67 100644
+--- a/mediapipe/python/solutions/selfie_segmentation.py
++++ b/mediapipe/python/solutions/selfie_segmentation.py
+@@ -29,7 +29,7 @@ from mediapipe.framework.tool import switch_container_pb2
+ 
+ from mediapipe.python.solution_base import SolutionBase
+ 
+-_BINARYPB_FILE_PATH = 'mediapipe/modules/selfie_segmentation/selfie_segmentation_cpu.binarypb'
++_BINARYPB_FILE_PATH = 'mediapipe/modules/selfie_segmentation/selfie_segmentation_gpu.binarypb'
+ 
+ 
+ class SelfieSegmentation(SolutionBase):
+diff --git a/mediapipe/util/__init__.py b/mediapipe/util/__init__.py
+deleted file mode 100644
+index 6db73bc..0000000
+--- a/mediapipe/util/__init__.py
++++ /dev/null
+@@ -1,14 +0,0 @@
+-"""Copyright 2019 The MediaPipe Authors.
+-
+-Licensed under the Apache License, Version 2.0 (the "License");
+-you may not use this file except in compliance with the License.
+-You may obtain a copy of the License at
+-
+-     http://www.apache.org/licenses/LICENSE-2.0
+-
+-Unless required by applicable law or agreed to in writing, software
+-distributed under the License is distributed on an "AS IS" BASIS,
+-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+-See the License for the specific language governing permissions and
+-limitations under the License.
+-"""
+diff --git a/setup.py b/setup.py
+index ef7794e..07b5b45 100644
+--- a/setup.py
++++ b/setup.py
+@@ -217,13 +217,13 @@ class BuildBinaryGraphs(build_ext.build_ext):
+   def run(self):
+     _check_bazel()
+     binary_graphs = [
+-        'face_detection/face_detection_short_range_cpu',
+-        'face_detection/face_detection_full_range_cpu',
+-        'face_landmark/face_landmark_front_cpu',
+-        'hand_landmark/hand_landmark_tracking_cpu',
+-        'holistic_landmark/holistic_landmark_cpu', 'objectron/objectron_cpu',
+-        'pose_landmark/pose_landmark_cpu',
+-        'selfie_segmentation/selfie_segmentation_cpu'
++        'face_detection/face_detection_short_range_gpu',
++        'face_detection/face_detection_full_range_gpu',
++        'face_landmark/face_landmark_front_gpu',
++        'hand_landmark/hand_landmark_tracking_gpu',
++        'holistic_landmark/holistic_landmark_gpu', 'objectron/objectron_gpu',
++        'pose_landmark/pose_landmark_gpu',
++        'selfie_segmentation/selfie_segmentation_gpu'
+     ]
+     for binary_graph in binary_graphs:
+       sys.stderr.write('generating binarypb: %s\n' %
+@@ -238,7 +238,9 @@ class BuildBinaryGraphs(build_ext.build_ext):
+         'build',
+         '--compilation_mode=opt',
+         '--copt=-DNDEBUG',
+-        '--define=MEDIAPIPE_DISABLE_GPU=1',
++        # '--define=MEDIAPIPE_DISABLE_GPU=1',
++        '--copt=-DMESA_EGL_NO_X11_HEADERS',
++        '--copt=-DEGL_NO_X11',
+         '--action_env=PYTHON_BIN_PATH=' + _normalize_path(sys.executable),
+         os.path.join('mediapipe/modules/', graph_path),
+     ]
+@@ -295,7 +297,9 @@ class BuildExtension(build_ext.build_ext):
+         'build',
+         '--compilation_mode=opt',
+         '--copt=-DNDEBUG',
+-        '--define=MEDIAPIPE_DISABLE_GPU=1',
++        # '--define=MEDIAPIPE_DISABLE_GPU=1',
++        '--copt=-DMESA_EGL_NO_X11_HEADERS',
++        '--copt=-DEGL_NO_X11',
+         '--action_env=PYTHON_BIN_PATH=' + _normalize_path(sys.executable),
+         str(ext.bazel_target + '.so'),
+     ]
+diff --git a/third_party/BUILD b/third_party/BUILD
+index e2044cf..35e99fd 100644
+--- a/third_party/BUILD
++++ b/third_party/BUILD
+@@ -90,7 +90,7 @@ OPENCV_MODULES = [
+ # still only builds the shared libraries, so we have to choose one or the
+ # other. We build shared libraries by default, but this variable can be used
+ # to switch to static libraries.
+-OPENCV_SHARED_LIBS = True
++OPENCV_SHARED_LIBS = False
+ 
+ OPENCV_SO_VERSION = "3.4"
+ 
+diff --git a/third_party/opencv_linux.BUILD b/third_party/opencv_linux.BUILD
+index 8445855..afc3700 100644
+--- a/third_party/opencv_linux.BUILD
++++ b/third_party/opencv_linux.BUILD
+@@ -18,14 +18,14 @@ cc_library(
+         #"include/aarch64-linux-gnu/opencv4/opencv2/cvconfig.h",
+         #"include/arm-linux-gnueabihf/opencv4/opencv2/cvconfig.h",
+         #"include/x86_64-linux-gnu/opencv4/opencv2/cvconfig.h",
+-        #"include/opencv4/opencv2/**/*.h*",
++        "include/opencv4/opencv2/**/*.h*",
+     ]),
+     includes = [
+         # For OpenCV 4.x
+         #"include/aarch64-linux-gnu/opencv4/",
+         #"include/arm-linux-gnueabihf/opencv4/",
+         #"include/x86_64-linux-gnu/opencv4/",
+-        #"include/opencv4/",
++        "include/opencv4/",
+     ],
+     linkopts = [
+         "-l:libopencv_core.so",
