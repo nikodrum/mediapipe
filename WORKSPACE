@@ -183,8 +183,8 @@ http_archive(
 http_archive(
     name = "opencv",
     build_file_content = all_content,
-    strip_prefix = "opencv-3.4.10",
-    urls = ["https://github.com/opencv/opencv/archive/3.4.10.tar.gz"],
+    strip_prefix = "opencv-4.6.0",
+    urls = ["https://github.com/opencv/opencv/archive/4.6.0.tar.gz"],
 )
 
 new_local_repository(
@@ -199,46 +199,46 @@ new_local_repository(
     path = "/usr"
 )
 
-new_local_repository(
-    name = "macos_opencv",
-    build_file = "@//third_party:opencv_macos.BUILD",
-    # For local MacOS builds, the path should point to an opencv@3 installation.
-    # If you edit the path here, you will also need to update the corresponding
-    # prefix in "opencv_macos.BUILD".
-    path = "/usr/local",
-)
+# new_local_repository(
+#     name = "macos_opencv",
+#     build_file = "@//third_party:opencv_macos.BUILD",
+#     # For local MacOS builds, the path should point to an opencv@3 installation.
+#     # If you edit the path here, you will also need to update the corresponding
+#     # prefix in "opencv_macos.BUILD".
+#     path = "/usr/local",
+# )
 
-new_local_repository(
-    name = "macos_ffmpeg",
-    build_file = "@//third_party:ffmpeg_macos.BUILD",
-    path = "/usr/local/opt/ffmpeg",
-)
+# new_local_repository(
+#     name = "macos_ffmpeg",
+#     build_file = "@//third_party:ffmpeg_macos.BUILD",
+#     path = "/usr/local/opt/ffmpeg",
+# )
 
-new_local_repository(
-    name = "windows_opencv",
-    build_file = "@//third_party:opencv_windows.BUILD",
-    path = "C:\\opencv\\build",
-)
+# new_local_repository(
+#     name = "windows_opencv",
+#     build_file = "@//third_party:opencv_windows.BUILD",
+#     path = "C:\\opencv\\build",
+# )
 
-http_archive(
-    name = "android_opencv",
-    build_file = "@//third_party:opencv_android.BUILD",
-    strip_prefix = "OpenCV-android-sdk",
-    type = "zip",
-    url = "https://github.com/opencv/opencv/releases/download/3.4.3/opencv-3.4.3-android-sdk.zip",
-)
+# http_archive(
+#     name = "android_opencv",
+#     build_file = "@//third_party:opencv_android.BUILD",
+#     strip_prefix = "OpenCV-android-sdk",
+#     type = "zip",
+#     url = "https://github.com/opencv/opencv/releases/download/3.4.3/opencv-3.4.3-android-sdk.zip",
+# )
 
 # After OpenCV 3.2.0, the pre-compiled opencv2.framework has google protobuf symbols, which will
 # trigger duplicate symbol errors in the linking stage of building a mediapipe ios app.
 # To get a higher version of OpenCV for iOS, opencv2.framework needs to be built from source with
 # '-DBUILD_PROTOBUF=OFF -DBUILD_opencv_dnn=OFF'.
-http_archive(
-    name = "ios_opencv",
-    sha256 = "7dd536d06f59e6e1156b546bd581523d8df92ce83440002885ec5abc06558de2",
-    build_file = "@//third_party:opencv_ios.BUILD",
-    type = "zip",
-    url = "https://github.com/opencv/opencv/releases/download/3.2.0/opencv-3.2.0-ios-framework.zip",
-)
+# http_archive(
+#     name = "ios_opencv",
+#     sha256 = "7dd536d06f59e6e1156b546bd581523d8df92ce83440002885ec5abc06558de2",
+#     build_file = "@//third_party:opencv_ios.BUILD",
+#     type = "zip",
+#     url = "https://github.com/opencv/opencv/releases/download/3.2.0/opencv-3.2.0-ios-framework.zip",
+# )
 
 http_archive(
     name = "stblib",
