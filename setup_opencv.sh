@@ -90,7 +90,7 @@ echo "Modifying MediaPipe opencv config"
 
 sed -i '/linkopts/a \ \ \ \ \ \ \ \ \"-L/usr/local/lib",' $opencv_build_file
 linux_opencv_config=$(grep -n 'linux_opencv' $workspace_file | awk -F  ":" '{print $1}')
-path_line=$((linux_opencv_config + 2))
+path_line=$((linux_opencv_config))
 sed -i "$path_line d" $workspace_file
 sed -i "$path_line i\    path = \"/usr/local\"," $workspace_file
 echo "Done"
