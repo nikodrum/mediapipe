@@ -199,6 +199,47 @@ new_local_repository(
     path = "/usr"
 )
 
+new_local_repository(
+    name = "macos_opencv",
+    build_file = "@//third_party:opencv_macos.BUILD",
+    # For local MacOS builds, the path should point to an opencv@3 installation.
+    # If you edit the path here, you will also need to update the corresponding
+    # prefix in "opencv_macos.BUILD".
+    path = "/usr/local",
+)
+
+new_local_repository(
+    name = "macos_ffmpeg",
+    build_file = "@//third_party:ffmpeg_macos.BUILD",
+    path = "/usr/local/opt/ffmpeg",
+)
+
+new_local_repository(
+    name = "windows_opencv",
+    build_file = "@//third_party:opencv_windows.BUILD",
+    path = "C:\\opencv\\build",
+)
+
+http_archive(
+    name = "android_opencv",
+    build_file = "@//third_party:opencv_android.BUILD",
+    strip_prefix = "OpenCV-android-sdk",
+    type = "zip",
+    url = "https://github.com/opencv/opencv/releases/download/3.4.3/opencv-3.4.3-android-sdk.zip",
+)
+
+# After OpenCV 3.2.0, the pre-compiled opencv2.framework has google protobuf symbols, which will
+# trigger duplicate symbol errors in the linking stage of building a mediapipe ios app.
+# To get a higher version of OpenCV for iOS, opencv2.framework needs to be built from source with
+# '-DBUILD_PROTOBUF=OFF -DBUILD_opencv_dnn=OFF'.
+http_archive(
+    name = "ios_opencv",
+    sha256 = "7dd536d06f59e6e1156b546bd581523d8df92ce83440002885ec5abc06558de2",
+    build_file = "@//third_party:opencv_ios.BUILD",
+    type = "zip",
+    url = "https://github.com/opencv/opencv/releases/download/3.2.0/opencv-3.2.0-ios-framework.zip",
+)
+
 http_archive(
     name = "stblib",
     strip_prefix = "stb-b42009b3b9d4ca35bc703f5310eedc74f584be58",
@@ -211,6 +252,60 @@ http_archive(
     patch_args = [
         "-p1",
     ],
+)
+
+# iOS basic build deps.
+
+http_archive(
+    name = "build_bazel_rules_apple",
+    sha256 = "77e8bf6fda706f420a55874ae6ee4df0c9d95da6c7838228b26910fc82eea5a2",
+    url = "https://github.com/bazelbuild/rules_apple/releases/download/0.32.0/rules_apple.0.32.0.tar.gz",
+    patches = [
+        # Bypass checking ios unit test runner when building MP ios applications.
+        "@//third_party:build_bazel_rules_apple_bypass_test_runner_check.diff"
+    ],
+    patch_args = [
+        "-p1",
+    ],
+)
+
+load(
+    "@build_bazel_rules_apple//apple:repositories.bzl",
+    "apple_rules_dependencies",
+)
+
+apple_rules_dependencies()
+
+load(
+    "@build_bazel_rules_swift//swift:repositories.bzl",
+    "swift_rules_dependencies",
+)
+
+swift_rules_dependencies()
+
+http_archive(
+    name = "build_bazel_apple_support",
+    sha256 = "741366f79d900c11e11d8efd6cc6c66a31bfb2451178b58e0b5edc6f1db17b35",
+    urls = [
+        "https://github.com/bazelbuild/apple_support/releases/download/0.10.0/apple_support.0.10.0.tar.gz"
+    ],
+)
+
+load(
+    "@build_bazel_apple_support//lib:repositories.bzl",
+    "apple_support_dependencies",
+)
+
+apple_support_dependencies()
+
+# More iOS deps.
+
+http_archive(
+    name = "google_toolbox_for_mac",
+    url = "https://github.com/google/google-toolbox-for-mac/archive/v2.2.1.zip",
+    sha256 = "e3ac053813c989a88703556df4dc4466e424e30d32108433ed6beaec76ba4fdc",
+    strip_prefix = "google-toolbox-for-mac-2.2.1",
+    build_file = "@//third_party:google_toolbox_for_mac.BUILD",
 )
 
 # Maven dependencies.
