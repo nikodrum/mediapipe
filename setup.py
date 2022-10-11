@@ -222,8 +222,8 @@ class BuildBinaryGraphs(build_ext.build_ext):
         'face_landmark/face_landmark_front_gpu',
         'hand_landmark/hand_landmark_tracking_gpu',
         # 'holistic_landmark/holistic_landmark_gpu',
-        'objectron/objectron_gpu',
-        'pose_landmark/pose_landmark_gpu',
+        # 'objectron/objectron_gpu',
+        # 'pose_landmark/pose_landmark_gpu',
         # 'selfie_segmentation/selfie_segmentation_gpu'
     ]
     for binary_graph in binary_graphs:
